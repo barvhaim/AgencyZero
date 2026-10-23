@@ -51,20 +51,13 @@ Evaluate package installations proposed by the agent using the task context, the
 
 The initial scope will use a closed catalog of lab packages and a controlled installation path—not unrestricted installation from public registries. The defense will combine deterministic policy with Granite Switch decisions and compare that combination against a rules-only baseline.
 
-## Roadmap
-
 ## Running the lab
 
 Copy `.env.sample` to `.env` and fill in the values, then:
 
 ```sh
-# Core lab: Hermes agent + Bob LLM proxy + example MCP server
 docker compose up -d
-
-# Same, plus Langfuse tracing (UI at http://localhost:3000)
-docker compose -f compose.yaml -f compose.langfuse.yaml up -d
-
-# Talk to the agent
+docker compose -f compose.yaml -f compose.langfuse.yaml up -d  # with Langfuse at http://localhost:3000
 docker compose exec hermes hermes
 ```
 
@@ -74,6 +67,8 @@ docker compose exec hermes hermes
 | `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
 | `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
 | `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |
+
+## Roadmap
 
 - [ ] Establish the lab threat model and reproducibility requirements.
 - [x] Run a pinned Hermes configuration inside Docker.

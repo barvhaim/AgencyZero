@@ -1,5 +1,3 @@
-# Lab stack: Hermes agent + Bob LLM proxy + MCP scenario server.
-# Add tracing with:  docker compose -f compose.yaml -f compose.langfuse.yaml up -d
 name: agencyzero
 services:
   mcp:
@@ -37,11 +35,6 @@ services:
       start_period: 10s
   hermes:
     image: ${HERMES_IMAGE:-nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d}
-    # The image's entrypoint (s6 /init) bootstraps /opt/data as root, then drops
-    # every process to the unprivileged `hermes` user. On each start we pin the
-    # model provider to bob-proxy, register the lab MCP server and toggle
-    # Langfuse tracing (on with compose.langfuse.yaml), then keep the container alive for
-    # `docker compose exec hermes hermes`.
     command:
       - sh
       - -c
@@ -61,20 +54,15 @@ services:
         fi &&
         echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium}), mcp: lab, tracing: $${tracing:-off}" &&
         exec sleep infinity
-    # Agent's working dir; also the default for `docker compose exec hermes ...`
     working_dir: /opt/data/workspace
     environment:
       HERMES_MODEL: ${HERMES_MODEL:-premium}
-      # Bob's proxy can't report context windows, so Hermes needs it set explicitly
       HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-128000}
-      # Owner of files Hermes writes into ./data (set to your host user on Linux)
       HERMES_UID: ${HERMES_UID:-10000}
       HERMES_GID: ${HERMES_GID:-10000}
     volumes:
-      # Hermes home (config, state.db, gateway socket) must be a Docker volume:
-      # macOS bind mounts can't hold Unix sockets or enforce their permissions.
+      # Docker volume, not a bind mount: macOS bind mounts can't hold Hermes's Unix socket
       - hermes_home:/opt/data
-      # Project-visible (gitignored) folders: the agent's working dir and logs.
       - ./data/workspace:/opt/data/workspace
       - ./data/logs:/opt/data/logs
     networks: [lab]
