@@ -1,0 +1,81 @@
+name: agencyzero
+services:
+  mcp:
+    build: ./mcp
+    profiles: [mcp]  # ./mcp doesn't exist yet; enable with --profile mcp
+    networks: [lab]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+  bob-proxy:
+    build: ./llm/bob-provider
+    env_file: .env
+    ports:
+      - "127.0.0.1:8989:8989"
+    networks: [lab]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8989), timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+  hermes:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d}
+    # The image's entrypoint (s6 /init) bootstraps /opt/data as root, then drops
+    # every process to the unprivileged `hermes` user. On each start we pin the
+    # model provider to bob-proxy, then keep the container alive for
+    # `docker compose exec hermes hermes`.
+    command:
+      - sh
+      - -c
+      - |
+        hermes config set model.provider custom >/dev/null &&
+        hermes config set model.base_url http://bob-proxy:8989/v1 >/dev/null &&
+        hermes config set model.api_key bob-proxy >/dev/null &&
+        hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
+        hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
+        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium})" &&
+        exec sleep infinity
+    # Agent's working dir; also the default for `docker compose exec hermes ...`
+    working_dir: /opt/data/workspace
+    environment:
+      HERMES_MODEL: ${HERMES_MODEL:-premium}
+      # Bob's proxy can't report context windows, so Hermes needs it set explicitly
+      HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-128000}
+      # Owner of files Hermes writes into ./data (set to your host user on Linux)
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+    volumes:
+      # Hermes home (config, state.db, gateway socket) must be a Docker volume:
+      # macOS bind mounts can't hold Unix sockets or enforce their permissions.
+      - hermes_home:/opt/data
+      # Project-visible (gitignored) folders: the agent's working dir and logs.
+      - ./data/workspace:/opt/data/workspace
+      - ./data/logs:/opt/data/logs
+    networks: [lab]
+    depends_on:
+      bob-proxy:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    pids_limit: 256
+volumes:
+  hermes_home:
+networks:
+  lab:
+    driver: bridge

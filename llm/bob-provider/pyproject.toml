@@ -1,0 +1,9 @@
+[project]
+name = "bob-provider"
+version = "0.1.0"
+description = "Local HMAC-signing proxy for Bob's LiteLLM backend"
+requires-python = ">=3.10"
+dependencies = [
+    "flask",
+    "requests",
+]
