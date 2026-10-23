@@ -61,7 +61,7 @@ services:
       HERMES_UID: ${HERMES_UID:-10000}
       HERMES_GID: ${HERMES_GID:-10000}
     volumes:
-      # Docker volume, not a bind mount: macOS bind mounts can't hold Hermes's Unix socket
+      # Named volume: Hermes keeps a Unix socket and permission-checked files here
       - hermes_home:/opt/data
       - ./data/workspace:/opt/data/workspace
       - ./data/logs:/opt/data/logs
