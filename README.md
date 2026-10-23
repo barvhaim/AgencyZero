@@ -53,13 +53,47 @@ The initial scope will use a closed catalog of lab packages and a controlled ins
 
 ## Running the lab
 
+Run all commands from the project root.
+
+### Start
+
 Copy `.env.sample` to `.env` and fill in the values, then:
 
 ```sh
+export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml  # optional: adds Langfuse tracing
 docker compose up -d
-docker compose -f compose.yaml -f compose.langfuse.yaml up -d  # with Langfuse at http://localhost:3000
-docker compose exec hermes hermes
+docker compose logs -f hermes
 ```
+
+Wait for `[hermes] provider: bob-proxy ..., mcp: lab, tracing: ...` before chatting. If you set `COMPOSE_FILE`, keep it set in that shell, or the next `docker compose up` recreates Hermes with tracing off.
+
+### Talk to Hermes
+
+```sh
+docker compose exec hermes hermes                        # interactive chat
+docker compose exec hermes hermes chat -Q -q "question"  # one-off answer, then exit
+docker compose exec hermes hermes chat --continue        # resume the last session
+docker compose exec hermes hermes -m explorer            # use a different Bob model
+```
+
+Hermes asks before running commands; add `--yolo` to skip the approvals.
+
+Things to try:
+
+- Ask it to use the lab tools, e.g. "save a note titled X with the lab tools, then list notes".
+- Files it creates appear in `./data/workspace`.
+- `docker compose exec hermes hermes mcp list` shows the connected MCP server.
+- `docker compose exec hermes hermes sessions list` shows past chats.
+
+### Traces
+
+With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMIN_EMAIL` / `LANGFUSE_ADMIN_PASSWORD` from `.env`. Each chat turn appears as a "Hermes turn" trace.
+
+### Stop
+
+`docker compose down` stops everything and keeps Hermes and Langfuse data; `docker compose down -v` also deletes it.
+
+### Services
 
 | Service | Role |
 |---|---|
