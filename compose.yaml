@@ -1,8 +1,9 @@
+# Lab stack: Hermes agent + Bob LLM proxy + MCP scenario server.
+# Add tracing with:  docker compose -f compose.yaml -f compose.langfuse.yaml up -d
 name: agencyzero
 services:
   mcp:
     build: ./mcp
-    profiles: [mcp]  # ./mcp doesn't exist yet; enable with --profile mcp
     networks: [lab]
     read_only: true
     tmpfs:
@@ -38,7 +39,8 @@ services:
     image: ${HERMES_IMAGE:-nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d}
     # The image's entrypoint (s6 /init) bootstraps /opt/data as root, then drops
     # every process to the unprivileged `hermes` user. On each start we pin the
-    # model provider to bob-proxy, then keep the container alive for
+    # model provider to bob-proxy, register the lab MCP server and toggle
+    # Langfuse tracing (on with compose.langfuse.yaml), then keep the container alive for
     # `docker compose exec hermes hermes`.
     command:
       - sh
@@ -49,7 +51,15 @@ services:
         hermes config set model.api_key bob-proxy >/dev/null &&
         hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
         hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
-        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium})" &&
+        hermes config set mcp_servers.lab.url http://mcp:8000/mcp >/dev/null &&
+        if [ -n "$${HERMES_LANGFUSE_PUBLIC_KEY:-}" ]; then
+          { hermes plugins list 2>/dev/null | grep -q langfuse ||
+            hermes plugins install langfuse --yes-deps --no-enable >/dev/null; } &&
+          hermes plugins enable langfuse >/dev/null && tracing=langfuse
+        else
+          hermes plugins disable langfuse >/dev/null 2>&1; tracing=off
+        fi &&
+        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium}), mcp: lab, tracing: $${tracing:-off}" &&
         exec sleep infinity
     # Agent's working dir; also the default for `docker compose exec hermes ...`
     working_dir: /opt/data/workspace
@@ -71,9 +81,12 @@ services:
     depends_on:
       bob-proxy:
         condition: service_healthy
+      mcp:
+        condition: service_healthy
     security_opt: ["no-new-privileges:true"]
     mem_limit: 2g
     pids_limit: 256
+
 volumes:
   hermes_home:
 networks:

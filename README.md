@@ -53,9 +53,31 @@ The initial scope will use a closed catalog of lab packages and a controlled ins
 
 ## Roadmap
 
+## Running the lab
+
+Copy `.env.sample` to `.env` and fill in the values, then:
+
+```sh
+# Core lab: Hermes agent + Bob LLM proxy + example MCP server
+docker compose up -d
+
+# Same, plus Langfuse tracing (UI at http://localhost:3000)
+docker compose -f compose.yaml -f compose.langfuse.yaml up -d
+
+# Talk to the agent
+docker compose exec hermes hermes
+```
+
+| Service | Role |
+|---|---|
+| `hermes` | Hermes Agent; works in `./data/workspace`, logs to `./data/logs` (gitignored) |
+| `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
+| `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
+| `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |
+
 - [ ] Establish the lab threat model and reproducibility requirements.
-- [ ] Run a pinned Hermes configuration inside Docker.
-- [ ] Connect agent and tool events to Langfuse.
+- [x] Run a pinned Hermes configuration inside Docker.
+- [x] Connect agent and tool events to Langfuse.
 - [ ] Implement the MCP scenario server and benign task baseline.
 - [ ] Add the first goal-hijack scenario and independent outcome checks.
 - [ ] Implement the rules-only InstallGuard baseline.
