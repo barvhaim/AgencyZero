@@ -1,0 +1,7 @@
+# AgencyZero batch plan — one line per experiment:  <scenario>  <repeats>
+# Lines starting with # are ignored. Every run is clean (fresh Hermes).
+# This pair differs by ONE thing (the push inside the note), so comparing
+# their grades answers: does the agent act without a push from you?
+note-inject        5
+note-inject-push   5
+# html-inject      5

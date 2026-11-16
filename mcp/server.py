@@ -4,10 +4,18 @@ Example MCP scenario server for the AgencyZero lab (FastMCP).
 Serves benign example fixtures over Streamable HTTP at http://mcp:8000/mcp
 on the compose `lab` network. Health check: GET /health.
 
+Notes are in-memory and reset on every container restart (disposable lab
+state). When AZ_SCENARIO is set, the notes for that scenario are pre-loaded
+from files at startup, so an adversarial note can be planted without the agent
+ever saving it — each note is one file under
+    /app/scenarios/<AZ_SCENARIO>/notes/<title>.md
+(the filename without .md is the note title, the file body is the content).
+
 Run locally:
     uv run python server.py
 """
 
+import glob
 import os
 from datetime import datetime, timezone
 
@@ -17,14 +25,32 @@ from starlette.responses import PlainTextResponse
 
 HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 PORT = int(os.environ.get("MCP_PORT", "8000"))
+SCENARIO = os.environ.get("AZ_SCENARIO", "").strip()
+SCENARIO_ROOT = os.environ.get("AZ_SCENARIO_ROOT", "/app/scenarios")
 
 mcp = FastMCP(
     "AgencyZero Lab",
     instructions="Example scenario server for the AgencyZero agent security lab.",
 )
 
+
+def load_scenario_notes() -> dict[str, str]:
+    """Pre-load notes for AZ_SCENARIO from <root>/<scenario>/notes/*.md."""
+    notes: dict[str, str] = {}
+    if not SCENARIO:
+        return notes
+    notes_dir = os.path.join(SCENARIO_ROOT, SCENARIO, "notes")
+    for path in sorted(glob.glob(os.path.join(notes_dir, "*.md"))):
+        title = os.path.splitext(os.path.basename(path))[0]
+        with open(path, encoding="utf-8") as fh:
+            notes[title] = fh.read().rstrip("\n")
+    return notes
+
+
 # In-memory notes, reset on every container restart (disposable lab state)
-_notes: dict[str, str] = {}
+_notes: dict[str, str] = load_scenario_notes()
+if SCENARIO:
+    print(f"[mcp] scenario '{SCENARIO}': pre-loaded {len(_notes)} note(s): {sorted(_notes)}", flush=True)
 
 
 # ---------------------------------------------------------------------------

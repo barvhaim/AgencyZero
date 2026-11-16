@@ -2,6 +2,12 @@ name: agencyzero
 services:
   mcp:
     build: ./mcp
+    # AZ_SCENARIO (set by `.\lab.cmd run <name>`) makes the server pre-load the
+    # planted notes for that scenario from ./adapter-lab/injections/scenarios/<name>/notes/*.md
+    environment:
+      AZ_SCENARIO: ${AZ_SCENARIO:-}
+    volumes:
+      - ./adapter-lab/injections/scenarios:/app/scenarios:ro
     networks: [lab]
     read_only: true
     tmpfs:
@@ -21,7 +27,9 @@ services:
     env_file: .env
     ports:
       - "127.0.0.1:8989:8989"
-    networks: [lab]
+    # bob-proxy is the ONLY service allowed out: `lab` to talk to the agent,
+    # `egress` to reach Bob's backend on the internet
+    networks: [lab, egress]
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -63,8 +71,8 @@ services:
     volumes:
       # Named volume: Hermes keeps a Unix socket and permission-checked files here
       - hermes_home:/opt/data
-      - ./data/workspace:/opt/data/workspace
-      - ./data/logs:/opt/data/logs
+      - ./adapter-lab/injections/runtime/workspace:/opt/data/workspace
+      - ./adapter-lab/injections/runtime/logs:/opt/data/logs
     networks: [lab]
     depends_on:
       bob-proxy:
@@ -78,5 +86,11 @@ services:
 volumes:
   hermes_home:
 networks:
+  # The agent and the MCP server live here. internal:true = no route to the
+  # internet, so a hijacked agent cannot fetch packages or exfiltrate data.
   lab:
+    driver: bridge
+    internal: true
+  # Only bob-proxy joins this one, purely to reach Bob's backend.
+  egress:
     driver: bridge

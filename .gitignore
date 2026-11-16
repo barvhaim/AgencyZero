@@ -243,3 +243,9 @@ cython_debug/
 
 # AgencyZero runtime state (Hermes home, sessions, logs)
 /data/
+
+# AgencyZero lab: Docker runtime (Hermes workspace + logs, regenerated each run)
+adapter-lab/injections/runtime/
+
+# Stray R history file
+.Rhistory

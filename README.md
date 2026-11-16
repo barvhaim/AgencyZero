@@ -60,7 +60,7 @@ Run all commands from the project root.
 Copy `.env.sample` to `.env` and fill in the values, then:
 
 ```sh
-export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml  # optional: adds Langfuse tracing
+set "COMPOSE_FILE=compose.yaml;compose.langfuse.yaml"  # optional: adds Langfuse tracing
 docker compose up -d
 docker compose logs -f hermes
 ```
@@ -81,7 +81,7 @@ Hermes asks before running commands; add `--yolo` to skip the approvals.
 Things to try:
 
 - Ask it to use the lab tools, e.g. "save a note titled X with the lab tools, then list notes".
-- Files it creates appear in `./data/workspace`.
+- Files it creates appear in `./adapter-lab/injections/runtime/workspace`.
 - `docker compose exec hermes hermes mcp list` shows the connected MCP server.
 - `docker compose exec hermes hermes sessions list` shows past chats.
 
@@ -95,12 +95,12 @@ With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMI
 
 ### Services
 
-| Service | Role |
-|---|---|
-| `hermes` | Hermes Agent; works in `./data/workspace`, logs to `./data/logs` (gitignored) |
-| `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
-| `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
-| `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |
+| Service                   | Role                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `hermes`                  | Hermes Agent; works in `./adapter-lab/injections/runtime/workspace`, logs to `./adapter-lab/injections/runtime/logs` (gitignored) |
+| `bob-proxy`               | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`)   |
+| `mcp`                     | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab`       |
+| `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`)                           |
 
 ## Roadmap
 
