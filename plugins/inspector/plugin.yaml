@@ -1,0 +1,3 @@
+name: inspector
+version: "1.0"
+description: Logs tool calls, LLM calls and API requests to a JSONL file
