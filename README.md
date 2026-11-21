@@ -85,6 +85,19 @@ Things to try:
 - `docker compose exec hermes hermes mcp list` shows the connected MCP server.
 - `docker compose exec hermes hermes sessions list` shows past chats.
 
+### Try OpenCode (synthetic baseline)
+
+OpenCode is optional and does not change the Hermes setup. Install [OpenCode](https://opencode.ai/docs/) version `1.19.6` on the host and put `opencode` on `PATH`. From the project root:
+
+```sh
+python3 agents/opencode/baseline.py --check  # validate local model configuration; no model request
+# After filling in .env, start just the existing model proxy:
+docker compose -f compose.yaml up -d bob-proxy
+python3 agents/opencode/baseline.py --model premium
+```
+
+The launcher uses the local proxy at `127.0.0.1:8989`, starts in a temporary workspace with fresh OpenCode state, and emits JSON events to stdout. It sends a fixed synthetic summarization prompt, denies tool use, and does not register the lab MCP server. This is a runtime baseline, not a scenario replay or an OS sandbox. A real run sends the synthetic prompt to the configured Bob backend.
+
 ### Traces
 
 With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMIN_EMAIL` / `LANGFUSE_ADMIN_PASSWORD` from `.env`. Each chat turn appears as a "Hermes turn" trace.
