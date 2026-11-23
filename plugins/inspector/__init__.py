@@ -21,6 +21,9 @@ MAX_FIELD = int(os.environ.get("INSPECTOR_MAX_FIELD", "4000"))
 # Crude secret masking; extend it for your own key formats.
 _SECRET = re.compile(r"(sk-[A-Za-z0-9_\-]{16,}|Bearer\s+[A-Za-z0-9._\-]{16,})")
 
+CAPTURE_REASONING = False
+CAPTURE_TEXT_DELTA_STREAM = False
+
 
 def _clean(obj, depth=0):
     """Make any payload JSON-safe, redacted and size-limited."""
@@ -173,6 +176,18 @@ def post_api_request(session_id="", model="", provider="", api_duration=None,
         api_call_count=api_call_count,
     )
 
+def on_stream_delta(delta="", kind="text", **kwargs):
+    if kind == "reasoning" and not CAPTURE_REASONING:
+        return
+    if kind == "text" and not CAPTURE_TEXT_DELTA_STREAM:
+        return
+    _write(
+        "stream_delta",
+        kind=kind,
+        delta=delta,
+        **kwargs,
+    )
+
 
 def register(ctx):
     ctx.register_hook("pre_tool_call", pre_tool_call)
@@ -181,5 +196,6 @@ def register(ctx):
     ctx.register_hook("post_llm_call", post_llm_call)
     ctx.register_hook("pre_api_request", pre_api_request)
     ctx.register_hook("post_api_request", post_api_request)
+    ctx.register_hook("on_stream_delta", on_stream_delta)
 
     logger.info("inspector plugin registered, sending events to %s", LOGGER_URL)

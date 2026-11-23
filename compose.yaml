@@ -47,6 +47,7 @@ services:
         hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
         hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
         hermes config set mcp_servers.lab.url http://mcp:8000/mcp >/dev/null &&
+        hermes config set plugins.stream_reasoning_deltas true >/dev/null &&
         if [ "$${HERMES_INSPECTOR_ENABLED:-false}" = "true" ]; then
           hermes plugins enable inspector >/dev/null && inspector=on
         else
