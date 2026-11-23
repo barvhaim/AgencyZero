@@ -15,4 +15,4 @@ COPY --from=cli /usr/local/bin/opencode /usr/local/bin/opencode
 WORKDIR /app
 COPY baseline.py .
 USER 10001:10001
-ENTRYPOINT ["python3", "/app/baseline.py"]
+CMD ["sleep", "infinity"]

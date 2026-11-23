@@ -6,17 +6,6 @@
 # https://github.com/langfuse/langfuse/blob/main/docker-compose.yml
 # UI: http://localhost:3000 (login: LANGFUSE_ADMIN_EMAIL / LANGFUSE_ADMIN_PASSWORD)
 services:
-  hermes:
-    environment:
-      HERMES_LANGFUSE_BASE_URL: http://langfuse-web:3000
-      HERMES_LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?set in .env}
-      HERMES_LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?set in .env}
-      HERMES_LANGFUSE_ENV: lab
-      # full = raw prompts/tool I/O (truncated); the lab needs to see attack payloads
-      HERMES_LANGFUSE_CAPTURE: ${HERMES_LANGFUSE_CAPTURE:-full}
-    depends_on:
-      langfuse-web:
-        condition: service_healthy
   langfuse-worker:
     image: docker.langfuse.com/langfuse/langfuse-worker:4
     restart: unless-stopped
@@ -66,7 +55,7 @@ services:
     depends_on: *langfuse-depends-on
     ports:
       - "127.0.0.1:3000:3000"
-    # `lab` so Hermes can send traces; `langfuse` to reach its own datastores
+    # `lab` for future agent telemetry; `langfuse` to reach its datastores
     networks: [lab, langfuse]
     environment:
       <<: *langfuse-worker-env
