@@ -6,10 +6,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
-    volumes:
-      - ./data/mcp-output:/data
     environment:
-      CALLED_FILE: /data/called.txt
+      CALLED_FILE: /tmp/called.jsonl
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 256m
@@ -49,7 +47,7 @@ services:
         hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
         hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
         hermes config set mcp_servers.lab.url http://mcp:8000/mcp >/dev/null &&
-        hermes plugins enable inspector >/dev/null &&
+        { hermes plugins enable inspector >/dev/null || echo '[hermes] inspector not enabled'; } &&
         if [ -n "$${HERMES_LANGFUSE_PUBLIC_KEY:-}" ]; then
           { hermes plugins list 2>/dev/null | grep -q langfuse ||
             hermes plugins install langfuse --yes-deps --no-enable >/dev/null; } &&
