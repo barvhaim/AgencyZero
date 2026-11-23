@@ -47,7 +47,12 @@ services:
         hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
         hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
         hermes config set mcp_servers.lab.url http://mcp:8000/mcp >/dev/null &&
-        { hermes plugins enable inspector >/dev/null || echo '[hermes] inspector not enabled'; } &&
+        if [ "$${HERMES_INSPECTOR_ENABLED:-false}" = "true" ]; then
+          hermes plugins enable inspector >/dev/null && inspector=on
+        else
+          hermes plugins disable inspector >/dev/null 2>&1 || true
+          inspector=off
+        fi &&
         if [ -n "$${HERMES_LANGFUSE_PUBLIC_KEY:-}" ]; then
           { hermes plugins list 2>/dev/null | grep -q langfuse ||
             hermes plugins install langfuse --yes-deps --no-enable >/dev/null; } &&
@@ -55,7 +60,7 @@ services:
         else
           hermes plugins disable langfuse >/dev/null 2>&1; tracing=off
         fi &&
-        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium}), mcp: lab, tracing: $${tracing:-off}" &&
+        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium}), mcp: lab, tracing: $${tracing:-off}, inspector: $${inspector:-off}" &&
         exec sleep infinity
     working_dir: /opt/data/workspace
     environment:
@@ -63,11 +68,12 @@ services:
       HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-128000}
       HERMES_UID: ${HERMES_UID:-10000}
       HERMES_GID: ${HERMES_GID:-10000}
+      HERMES_INSPECTOR_ENABLED: "false"
     volumes:
       # Named volume: Hermes keeps a Unix socket and permission-checked files here
       - hermes_home:/opt/data
-      - ./data/workspace:/opt/data/workspace
       - ./data/logs:/opt/data/logs
+      - ./data/workspace:/opt/data/workspace
       - ./plugins/inspector:/opt/data/plugins/inspector:ro
     networks: [lab]
     depends_on:
