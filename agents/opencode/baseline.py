@@ -42,7 +42,10 @@ def main():
                 "agencyzero": {
                     "npm": "@ai-sdk/openai-compatible",
                     "name": "AgencyZero local proxy",
-                    "options": {"baseURL": PROXY_URL, "apiKey": "bob-proxy"},
+                    "options": {
+                        "baseURL": os.environ.get("AGENCYZERO_OPENCODE_PROXY_URL", PROXY_URL),
+                        "apiKey": "bob-proxy",
+                    },
                     "models": {model: {"name": model} for model in MODELS},
                 },
             },

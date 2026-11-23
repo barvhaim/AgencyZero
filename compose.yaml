@@ -75,6 +75,23 @@ services:
     mem_limit: 2g
     pids_limit: 256
 
+  opencode:
+    profiles: [demo]
+    build: ./agents/opencode
+    environment:
+      AGENCYZERO_OPENCODE_PROXY_URL: http://bob-proxy:8989/v1
+    networks: [lab]
+    depends_on:
+      bob-proxy:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    pids_limit: 128
+
 volumes:
   hermes_home:
 networks:

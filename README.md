@@ -87,16 +87,16 @@ Things to try:
 
 ### Try OpenCode (synthetic baseline)
 
-OpenCode is optional and does not change the Hermes setup. Install [OpenCode](https://opencode.ai/docs/) version `1.19.6` on the host and put `opencode` on `PATH`. From the project root:
+OpenCode is a one-shot Compose service in the `demo` profile. Targeting `opencode` with `docker compose run` activates the profile for that run; plain `docker compose up -d` still starts the standard lab without OpenCode. The image includes [OpenCode](https://opencode.ai/docs/) `1.19.6` for Linux amd64 and arm64, so no host installation is needed. Compose expects `.env` to exist for both commands; only the demo needs valid Bob credentials.
 
 ```sh
-python3 agents/opencode/baseline.py --check  # validate local model configuration; no model request
-# After filling in .env, start just the existing model proxy:
-docker compose -f compose.yaml up -d bob-proxy
-python3 agents/opencode/baseline.py --model premium
+# List configured models without starting the proxy or sending a model request:
+docker compose run --rm --build --no-deps opencode --check
+# After filling in .env, run the demo; Compose starts the proxy if needed:
+docker compose run --rm --build opencode --model premium
 ```
 
-The launcher uses the local proxy at `127.0.0.1:8989`, starts in a temporary workspace with fresh OpenCode state, and emits JSON events to stdout. It sends a fixed synthetic summarization prompt, denies tool use, and does not register the lab MCP server. This is a runtime baseline, not a scenario replay or an OS sandbox. A real run sends the synthetic prompt to the configured Bob backend.
+The service connects to `bob-proxy` over the Compose network, starts in a temporary workspace with fresh OpenCode state, and emits JSON events to stdout. It sends a fixed synthetic summarization prompt, denies tool use, and does not register the lab MCP server or mount the lab workspace. This is a runtime baseline, not a scenario replay. A real run sends the synthetic prompt to the configured Bob backend.
 
 ### Traces
 
@@ -111,6 +111,7 @@ With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMI
 | Service | Role |
 |---|---|
 | `hermes` | Hermes Agent; works in `./data/workspace`, logs to `./data/logs` (gitignored) |
+| `opencode` | One-shot synthetic OpenCode baseline (optional `demo` profile) |
 | `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
 | `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
 | `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |

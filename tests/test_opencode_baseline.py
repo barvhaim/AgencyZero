@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -48,13 +49,11 @@ class TestOpenCodeBaseline(unittest.TestCase):
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
-                code = (
-                    "import runpy, sys; module = runpy.run_path(sys.argv[1]); "
-                    "main = module['main']; main.__globals__['PROXY_URL'] = sys.argv[2]; "
-                    "sys.argv = [sys.argv[1]]; raise SystemExit(main())"
-                )
-                result = subprocess.run([sys.executable, "-c", code, str(SCRIPT),
-                                         f"http://127.0.0.1:{server.server_port}/v1"],
+                env = {
+                    **os.environ,
+                    "AGENCYZERO_OPENCODE_PROXY_URL": f"http://127.0.0.1:{server.server_port}/v1",
+                }
+                result = subprocess.run([sys.executable, str(SCRIPT)], env=env,
                                         capture_output=True, text=True, timeout=30)
             finally:
                 server.shutdown()
