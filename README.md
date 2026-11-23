@@ -22,14 +22,14 @@ The lab is intended for students, security researchers, and developers building 
 
 The first lab will be built around:
 
-- **Hermes Agent** running inside a dedicated Docker container.
+- **OpenCode** running inside a dedicated Docker container.
 - **Docker Compose** for reproducible services, isolated networks, and disposable lab state.
 - **A purpose-built MCP server** serving benign and adversarial test fixtures.
 - **OpenTelemetry and Langfuse** for correlated traces of model calls, tool use, defense decisions, and observed outcomes.
 - **Granite Switch** for evaluating decision-model-assisted defenses alongside deterministic controls.
 
 ```text
-Hermes Agent <----------> MCP scenario server
+OpenCode <--------------> MCP scenario server (planned connection)
        |
        v
 Defense integration ---> Granite Switch
@@ -60,54 +60,47 @@ Run all commands from the project root.
 Copy `.env.sample` to `.env` and fill in the values, then:
 
 ```sh
-export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml  # optional: adds Langfuse tracing
-docker compose up -d
-docker compose logs -f hermes
+docker compose up -d --build --wait
 ```
 
-Wait for `[hermes] provider: bob-proxy ..., mcp: lab, tracing: ...` before chatting. If you set `COMPOSE_FILE`, keep it set in that shell, or the next `docker compose up` recreates Hermes with tracing off.
+OpenCode is the default agent service. Starting the stack does not send a model request. The image includes [OpenCode](https://opencode.ai/docs/) `1.19.6` for Linux amd64 and arm64; no host installation is needed.
 
-### Talk to Hermes
+If you are upgrading a running stack that used Hermes, add `--remove-orphans` to the start command to remove the old service container. This does not delete its named volume.
+
+### Run the OpenCode demo
 
 ```sh
-docker compose exec hermes hermes                        # interactive chat
-docker compose exec hermes hermes chat -Q -q "question"  # one-off answer, then exit
-docker compose exec hermes hermes chat --continue        # resume the last session
-docker compose exec hermes hermes -m explorer            # use a different Bob model
+# List configured models without sending a model request:
+docker compose exec -T opencode python3 /app/baseline.py --check
+# Run the synthetic demo with valid Bob credentials:
+docker compose exec -T opencode python3 /app/baseline.py --model premium
 ```
 
-Hermes asks before running commands; add `--yolo` to skip the approvals.
-
-Things to try:
-
-- Ask it to use the lab tools, e.g. "save a note titled X with the lab tools, then list notes".
-- Files it creates appear in `./data/workspace`.
-- `docker compose exec hermes hermes mcp list` shows the connected MCP server.
-- `docker compose exec hermes hermes sessions list` shows past chats.
+The service connects to `bob-proxy` over the Compose network, starts in a temporary workspace with fresh OpenCode state, and emits JSON events to stdout. It sends a fixed synthetic summarization prompt, denies tool use, and does not register the lab MCP server or mount the lab workspace. This is a runtime baseline, not a scenario replay. A real run sends the synthetic prompt to the configured Bob backend.
 
 ### Traces
 
-With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMIN_EMAIL` / `LANGFUSE_ADMIN_PASSWORD` from `.env`. Each chat turn appears as a "Hermes turn" trace.
+The OpenCode demo emits JSON events to stdout; it does not send traces to Langfuse. To run the optional Langfuse stack, fill in its settings in `.env`, then run `export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml` before starting and stopping the lab. Open http://localhost:3000 and sign in with `LANGFUSE_ADMIN_EMAIL` / `LANGFUSE_ADMIN_PASSWORD`.
 
 ### Stop
 
-`docker compose down` stops everything and keeps Hermes and Langfuse data; `docker compose down -v` also deletes it.
+`docker compose down` stops the stack and retains named volumes. `docker compose down -v` also deletes named volumes declared by the active Compose files.
 
 ### Services
 
 | Service | Role |
 |---|---|
-| `hermes` | Hermes Agent; works in `./data/workspace`, logs to `./data/logs` (gitignored) |
+| `opencode` | Default agent service; runs the synthetic baseline on demand |
 | `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
-| `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
-| `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |
+| `mcp` | Example FastMCP scenario server (`mcp/`); not used by the OpenCode baseline |
+| `langfuse-*` + datastores | Optional telemetry infrastructure (`compose.langfuse.yaml`) |
 
 ## Roadmap
 
 - [ ] Establish the lab threat model and reproducibility requirements.
-- [x] Run a pinned Hermes configuration inside Docker.
-- [x] Connect agent and tool events to Langfuse.
-- [ ] Implement the MCP scenario server and benign task baseline.
+- [x] Package a pinned OpenCode configuration in Docker.
+- [ ] Connect OpenCode agent and tool events to Langfuse.
+- [ ] Connect OpenCode to the MCP scenario server for a benign tool demo.
 - [ ] Add the first goal-hijack scenario and independent outcome checks.
 - [ ] Implement the rules-only InstallGuard baseline.
 - [ ] Integrate Granite Switch in observation-only mode, then evaluate enforcement.
@@ -118,8 +111,7 @@ With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMI
 ## References
 
 - [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026)
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent)
-- [Hermes documentation](https://hermes-agent.nousresearch.com/docs/)
+- [OpenCode documentation](https://opencode.ai/docs/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [OpenTelemetry](https://opentelemetry.io/)
 - [Langfuse](https://langfuse.com/)

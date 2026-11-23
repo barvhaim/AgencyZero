@@ -33,50 +33,23 @@ services:
       timeout: 4s
       retries: 12
       start_period: 10s
-  hermes:
-    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d}
-    command:
-      - sh
-      - -c
-      - |
-        hermes config set model.provider custom >/dev/null &&
-        hermes config set model.base_url http://bob-proxy:8989/v1 >/dev/null &&
-        hermes config set model.api_key bob-proxy >/dev/null &&
-        hermes config set model.default "$${HERMES_MODEL:-premium}" >/dev/null &&
-        hermes config set model.context_length "$${HERMES_CONTEXT_LENGTH:-128000}" >/dev/null &&
-        hermes config set mcp_servers.lab.url http://mcp:8000/mcp >/dev/null &&
-        if [ -n "$${HERMES_LANGFUSE_PUBLIC_KEY:-}" ]; then
-          { hermes plugins list 2>/dev/null | grep -q langfuse ||
-            hermes plugins install langfuse --yes-deps --no-enable >/dev/null; } &&
-          hermes plugins enable langfuse >/dev/null && tracing=langfuse
-        else
-          hermes plugins disable langfuse >/dev/null 2>&1; tracing=off
-        fi &&
-        echo "[hermes] provider: bob-proxy ($${HERMES_MODEL:-premium}), mcp: lab, tracing: $${tracing:-off}" &&
-        exec sleep infinity
-    working_dir: /opt/data/workspace
+  opencode:
+    build: ./agents/opencode
+    init: true
     environment:
-      HERMES_MODEL: ${HERMES_MODEL:-premium}
-      HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-128000}
-      HERMES_UID: ${HERMES_UID:-10000}
-      HERMES_GID: ${HERMES_GID:-10000}
-    volumes:
-      # Named volume: Hermes keeps a Unix socket and permission-checked files here
-      - hermes_home:/opt/data
-      - ./data/workspace:/opt/data/workspace
-      - ./data/logs:/opt/data/logs
+      AGENCYZERO_OPENCODE_PROXY_URL: http://bob-proxy:8989/v1
     networks: [lab]
     depends_on:
       bob-proxy:
         condition: service_healthy
-      mcp:
-        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    mem_limit: 2g
-    pids_limit: 256
+    mem_limit: 512m
+    pids_limit: 128
 
-volumes:
-  hermes_home:
 networks:
   lab:
     driver: bridge
