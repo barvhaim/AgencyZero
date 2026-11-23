@@ -6,4 +6,6 @@ COPY server.py .
 
 EXPOSE 9000
 
+USER 10001:10001
+
 CMD ["python", "-u", "server.py"]

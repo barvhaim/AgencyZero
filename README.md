@@ -59,8 +59,21 @@ Run all commands from the project root.
 
 Copy `.env.sample` to `.env` and fill in the values, then:
 
+**Linux users:** If you intend to enable the Inspector logger, prepare its log directory before starting:
+
 ```sh
-export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml  # optional: adds Langfuse tracing
+mkdir -p data/inspector-logs
+sudo chown -R 10001:10001 data/inspector-logs
+```
+
+This gives the logger container (UID/GID 10001:10001) permission to write to the host-mounted directory.
+
+```sh
+# Choose one configuration:
+export COMPOSE_FILE=compose.yaml
+# export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml  # optional: adds Langfuse tracing
+# export COMPOSE_FILE=compose.yaml:compose.inspector.yaml  # optional: adds inspector logging
+# export COMPOSE_FILE=compose.yaml:compose.langfuse.yaml:compose.inspector.yaml  # optional: adds both langfuse tracing and inspector logging
 docker compose up -d
 docker compose logs -f hermes
 ```
@@ -87,7 +100,43 @@ Things to try:
 
 ### Traces
 
+**Langfuse**
+
 With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMIN_EMAIL` / `LANGFUSE_ADMIN_PASSWORD` from `.env`. Each chat turn appears as a "Hermes turn" trace.
+
+**Inspector**
+
+With Inspector enabled, events are written to `./data/inspector-logs/inspector.jsonl`. The JSONL file contains recorded tool calls, LLM turns, and provider request metadata. Each line represents a separate JSON event.
+
+To inspect the log:
+
+```sh
+# Follow new events
+tail -f data/inspector-logs/inspector.jsonl
+
+# View the complete log
+cat data/inspector-logs/inspector.jsonl
+```
+
+Inspector logging is optional and can be enabled through `compose.inspector.yaml`.
+
+**Optional stream capture**
+
+Inspector can also record incremental model output through Hermes streaming hooks. By default, both stream capture options are disabled.
+
+To change them, edit `plugins/inspector/__init__.py`:
+
+```python
+CAPTURE_TEXT_DELTAS = False
+CAPTURE_REASONING = False
+```
+
+- `CAPTURE_TEXT_DELTAS`: Records incremental text output. Usually unnecessary because completed assistant responses are already captured by `post_llm_call`.
+- `CAPTURE_REASONING`: Records reasoning deltas exposed by the provider. This can substantially increase log size.
+
+Set either option to `True` to enable its capture. Restart Hermes after changing the plugin so the changes take effect.
+
+These options affect Inspector logging, not the model's reasoning capabilities.
 
 ### Stop
 
@@ -101,6 +150,7 @@ With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMI
 | `bob-proxy` | OpenAI/Anthropic-compatible proxy to Bob's LLM backend (`llm/bob-provider`) |
 | `mcp` | Example FastMCP scenario server (`mcp/`), registered in Hermes as `lab` |
 | `langfuse-*` + datastores | Optional trace collection (`compose.langfuse.yaml`) |
+| `logger` | Optional Inspector event receiver; writes JSONL logs to `./data/inspector-logs` |
 
 ## Roadmap
 
