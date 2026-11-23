@@ -106,7 +106,11 @@ With Langfuse enabled, open http://localhost:3000 and log in with `LANGFUSE_ADMI
 
 **Inspector**
 
-With Inspector enabled, events are written to `./data/inspector-logs/inspector.jsonl`. The JSONL file contains recorded tool calls, LLM turns, and provider request metadata. Each line represents a separate JSON event.
+Inspector logging is independent of Langfuse and can be enabled without running the Langfuse services.
+
+With Inspector enabled, events are written to `./data/inspector-logs/inspector.jsonl`. The JSONL file contains recorded tool calls, LLM turns, and provider request metadata. Depending on the captured event, records may include conversation content, tool inputs, and tool outputs. Each line represents a separate JSON event.
+
+**Use synthetic data only when running experiments.** Inspector logs may contain sensitive information from conversations and tool interactions. Treat the log file as potentially sensitive and avoid using real credentials, personal information, or confidential data.
 
 To inspect the log:
 
@@ -140,7 +144,7 @@ These options affect Inspector logging, not the model's reasoning capabilities.
 
 ### Stop
 
-`docker compose down` stops everything and keeps Hermes and Langfuse data; `docker compose down -v` also deletes it.
+`docker compose down` stops everything and keeps Hermes and Langfuse data; `docker compose down -v` also deletes it, but does not delete host directories such as `./data/inspector-logs`..
 
 ### Services
 
