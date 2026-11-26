@@ -1,6 +1,8 @@
 services:
   logger:
     build: ./logger
+    environment:
+      INSPECTOR_KEY: ${INSPECTOR_KEY:?set INSPECTOR_KEY in .env}
     networks: [lab]
     user: "10001:10001"
     volumes:
@@ -26,6 +28,7 @@ services:
     environment:
       HERMES_INSPECTOR_ENABLED: "true"
       INSPECTOR_LOGGER_URL: "http://logger:9000/event"
+      INSPECTOR_KEY: ${INSPECTOR_KEY:?set INSPECTOR_KEY in .env}
     depends_on:
       logger:
         condition: service_healthy

@@ -1,28 +1,52 @@
-
 """Inspector plugin: records tool calls, LLM turns and provider requests.
 
-Events are sent to an external JSONL logging server.
+Events are sent to an external JSONL logging server, authenticated with a
+shared bearer secret (INSPECTOR_SECRET).
 
 All hooks are observers: they never block, modify or inject anything.
+
+SECURITY NOTE: this plugin runs inside the agent's process, so everything it
+reports is the agent's own claim, and the agent can read INSPECTOR_SECRET.
+The secret only keeps *other* network peers from posting events. Do not treat
+this log as tamper-proof evidence; cross-check it against an outside observer.
 """
 
 import json
 import logging
 import os
 import re
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
 logger = logging.getLogger("inspector")
 
 LOGGER_URL = os.environ.get("INSPECTOR_LOGGER_URL")
+INSPECTOR_SECRET = os.environ.get("INSPECTOR_KEY", "")
 MAX_FIELD = int(os.environ.get("INSPECTOR_MAX_FIELD", "4000"))
+
+# Only send events when both the URL and the secret are configured.
+ENABLED = bool(LOGGER_URL and INSPECTOR_SECRET)
 
 # Crude secret masking; extend it for your own key formats.
 _SECRET = re.compile(r"(sk-[A-Za-z0-9_\-]{16,}|Bearer\s+[A-Za-z0-9._\-]{16,})")
 
 CAPTURE_REASONING = False
 CAPTURE_TEXT_DELTA_STREAM = False
+
+# Failure reporting state: log the first failure, then every Nth, to avoid
+# flooding logs when the server is down, rejecting us, or its log is full.
+_FAILURE_LOG_EVERY = 100
+_failure_count = 0
+
+
+def _redact(text: str) -> str:
+    text = _SECRET.sub("[REDACTED]", text)
+    # Also strip the inspector secret itself, in case the agent echoes its
+    # environment or config into a tool result.
+    if INSPECTOR_SECRET:
+        text = text.replace(INSPECTOR_SECRET, "[REDACTED]")
+    return text
 
 
 def _clean(obj, depth=0):
@@ -31,7 +55,7 @@ def _clean(obj, depth=0):
         return "<max depth>"
 
     if isinstance(obj, str):
-        text = _SECRET.sub("[REDACTED]", obj)
+        text = _redact(obj)
         if len(text) > MAX_FIELD:
             text = text[:MAX_FIELD] + f"...[+{len(text) - MAX_FIELD} chars]"
         return text
@@ -48,9 +72,19 @@ def _clean(obj, depth=0):
     return _clean(str(obj), depth + 1)
 
 
+def _report_failure(event: str, reason: str) -> None:
+    global _failure_count
+    _failure_count += 1
+    if _failure_count == 1 or _failure_count % _FAILURE_LOG_EVERY == 0:
+        logger.warning(
+            "inspector failed to send event %s (%s); %d failure(s) so far",
+            event, reason, _failure_count,
+        )
+
+
 def _write(event: str, **fields):
     """Send one JSON event to the external logger. Never raises."""
-    if not LOGGER_URL:
+    if not ENABLED:
         return
 
     try:
@@ -65,15 +99,22 @@ def _write(event: str, **fields):
         request = urllib.request.Request(
             LOGGER_URL,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {INSPECTOR_SECRET}",
+            },
             method="POST",
         )
 
         with urllib.request.urlopen(request, timeout=2):
             pass
 
-    except Exception:
-        logger.exception("inspector failed to send event %s", event)
+    except urllib.error.HTTPError as exc:
+        # 401 = bad/missing secret, 507 = server log full, 413/400 = bad payload.
+        _report_failure(event, f"HTTP {exc.code}")
+        exc.close()
+    except Exception as exc:
+        _report_failure(event, type(exc).__name__)
 
 
 # --------------------------------------------------------------------------
@@ -176,6 +217,7 @@ def post_api_request(session_id="", model="", provider="", api_duration=None,
         api_call_count=api_call_count,
     )
 
+
 def on_stream_delta(delta="", kind="text", **kwargs):
     if kind == "reasoning" and not CAPTURE_REASONING:
         return
@@ -190,6 +232,14 @@ def on_stream_delta(delta="", kind="text", **kwargs):
 
 
 def register(ctx):
+    if LOGGER_URL and not INSPECTOR_SECRET:
+        logger.warning(
+            "INSPECTOR_LOGGER_URL is set but INSPECTOR_SECRET is not; "
+            "inspector plugin is disabled (the server would reject every event)"
+        )
+    elif not LOGGER_URL:
+        logger.info("INSPECTOR_LOGGER_URL not set; inspector plugin is disabled")
+
     ctx.register_hook("pre_tool_call", pre_tool_call)
     ctx.register_hook("post_tool_call", post_tool_call)
     ctx.register_hook("pre_llm_call", pre_llm_call)
@@ -198,4 +248,5 @@ def register(ctx):
     ctx.register_hook("post_api_request", post_api_request)
     ctx.register_hook("on_stream_delta", on_stream_delta)
 
-    logger.info("inspector plugin registered, sending events to %s", LOGGER_URL)
+    if ENABLED:
+        logger.info("inspector plugin registered, sending events to %s", LOGGER_URL)
