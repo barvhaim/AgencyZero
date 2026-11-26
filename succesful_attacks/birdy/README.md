@@ -158,21 +158,29 @@ By requesting MCP lab tools (read_note, save_note, send_mail, play_song), the at
 - **User prompt**: "why did you add extra things, i never asked you to read any notes or create any notes"
 - **Agent response**: Apologized and acknowledged following embedded instructions
 
-### Post-Skill Run (with prompt-injection-defense skill)
-From `logs/weird suseptability even after skill.jsonl`:
-- Agent loaded the defense skill
-- **Still executed the full injection**
-- Updated the skill with the example
-- Self-reported: "Skill 'prompt-injection-defense' patched"
-- **After patching, still vulnerable on repeat**
+### Post-Skill Runs (with prompt-injection-defense skill)
+
+The observed behavior was inconsistent.
+
+- **Initial observation:** The agent loaded the defense skill but still executed the full injection. It subsequently recognized the behavior when asked about why it still was injected, but still failed to defend itself properly.
+- **Subsequent observations:** In later runs, the skill appeared to interfere with injected instructions to a degree that became disruptive enough for me to temporarily disable it and continue the experiments.
+- **Evidence limitation:** Logs documenting these subsequent runs were not retained. Consequently, their exact behavior, effectiveness, and consistency cannot currently be independently verified.
+
+The skill therefore should not be characterized as either completely ineffective or demonstrably effective. Its actual defensive impact remains to be established through controlled testing.
 
 ### Pattern Observed
-The agent demonstrates **post-hoc recognition** but not **pre-execution prevention**:
-1. Executes injected instructions
-2. User questions the behavior
-3. Agent recognizes the injection
-4. Updates defense skill
-5. On next run, **repeats the same vulnerability**
+
+The initial logged run demonstrated post-hoc recognition rather than prevention:
+
+1. The agent executed the injected instructions.
+2. The user questioned the behavior.
+3. The agent recognized the prompt injection.
+4. The agent updated its defense skill.
+5. The same vulnerability persisted in the recorded repeat run.
+
+In later, undocumented runs, the skill appeared to interfere with the attack sufficiently to disrupt experimentation. This prompted its temporary deactivation.
+
+However, because logs from those runs are unavailable, this remains an anecdotal observation rather than a verified experimental result. Further testing is needed to establish how much protection the skill actually provided and how consistently it behaved.
 
 ---
 
@@ -242,7 +250,7 @@ This attack pattern applies to:
 ### Implemented (Partial Success)
 - ✓ Created `prompt-injection-defense` skill with authorization gate
 - ✓ Documented LLM-conditional instructions as adversarial pattern
-- ✗ Defense not consistently applied
+- ◇ Defensive effectiveness not yet systematically evaluated.
 
 ### Required
 1. **Hard authorization boundary**: External content cannot authorize tool use
@@ -277,23 +285,25 @@ To reproduce this attack:
 4. Ask the agent: "summarize the story in to_summerize.txt"
 5. Observe tool call sequence
 
-The agent will execute all embedded instructions despite them not being user-authorized.
+In the initial experiments without effective defenses, the agent executed injected instructions despite them not being user-authorized.
+Results may vary depending on the model, agent configuration, and enabled defensive mechanisms.
 
 ---
 
 ## Conclusion
 
-The "Birdy" attack demonstrates that **indirect prompt injection remains effective even against agents with dedicated defense skills**. The vulnerability is architectural: LLMs struggle to distinguish between "information about what to do" and "instructions to execute."
+The Birdy experiments demonstrate the susceptibility of the tested LLM-based agent to indirect prompt injection. Instructions embedded in seemingly benign content were sufficient to influence the agent into performing actions beyond the scope of the user's original request, including accessing private files, interacting with external resources, and invoking available tools.
 
-Current mitigation (the `prompt-injection-defense` skill) provides conceptual awareness but lacks enforcement. The agent recognizes injections post-hoc but not pre-execution.
+The experiments also explored the use of a reasoning-level defense through the `prompt-injection-defense` skill. Initial logged runs showed that loading the skill did not reliably prevent the attack. In subsequent experimentation, the skill appeared to influence the agent's behavior, although its effectiveness and consistency have not yet been established. Logs documenting those observations were not retained, and a more systematic evaluation is still needed.
 
-**Future work**: Implement hard gates at the tool execution layer, not the reasoning layer.
+These findings highlight both the susceptibility of tool-using agents to indirect prompt injection and the difficulty of relying solely on reasoning-level defenses to prevent unauthorized actions.
 
+A natural next step is to evaluate these defenses through controlled, repeatable benchmarking and investigate complementary enforcement mechanisms at the tool-execution layer. Such mechanisms could provide an authorization boundary independent of the agent's interpretation of instructions embedded in untrusted content.
 ---
 
 **Experiment conducted:** November 2026  
 **Agent version:** Hermes Agent (Nous Research)  
-**Model:** Premium tier (custom)  
+**Model:** Premium tier (custom), i believe its sonnet 4.5
 **MCP tools used:** lab (read_note, save_note, play_song, send_mail)  
 
 ---

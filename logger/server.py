@@ -13,11 +13,28 @@ write_lock = threading.Lock()
 
 class LoggerHandler(BaseHTTPRequestHandler):
 
+    def check_log_writable():
+    try:
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        with LOG_FILE.open("a", encoding="utf-8"):
+            pass
+
+        return True
+
+    except OSError:
+        return False
+
     def do_GET(self):
         if self.path == "/health":
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"OK")
+            if check_log_writable():
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"OK")
+            else:
+                self.send_response(503)
+                self.end_headers()
+                self.wfile.write(b"Log directory not writable")
         else:
             self.send_error(404)
 
@@ -63,6 +80,7 @@ class LoggerHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not check_log_writable():
+        raise SystemExit("FATAL: Log file is not writable")
     server = ThreadingHTTPServer(("0.0.0.0", 9000), LoggerHandler)
     server.serve_forever()

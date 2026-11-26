@@ -266,6 +266,7 @@ def about() -> dict:
 @mcp.resource("lab://notes/{title}")
 def note_resource(title: str) -> str:
     """A saved note, addressable as a resource."""
+    title=normalize_title(title)
     if title not in _notes:
         raise ValueError(f"No note titled '{title}'")
 
