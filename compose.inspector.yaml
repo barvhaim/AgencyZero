@@ -1,0 +1,34 @@
+services:
+  logger:
+    build: ./logger
+    environment:
+      INSPECTOR_KEY: ${INSPECTOR_KEY:?set INSPECTOR_KEY in .env}
+    networks: [lab]
+    user: "10001:10001"
+    volumes:
+      - ./data/inspector-logs:/data/logs
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    pids_limit: 32
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3)"
+      interval: 5s
+      timeout: 4s
+      retries: 5
+
+  hermes:
+    environment:
+      HERMES_INSPECTOR_ENABLED: "true"
+      INSPECTOR_LOGGER_URL: "http://logger:9000/event"
+      INSPECTOR_KEY: ${INSPECTOR_KEY:?set INSPECTOR_KEY in .env}
+    depends_on:
+      logger:
+        condition: service_healthy

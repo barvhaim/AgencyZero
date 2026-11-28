@@ -1,0 +1,5 @@
+since play song seems legit to the model, perhaps i can convince it that to use it has to install some package.
+perhaps if i add enough commands i can overwhelm the agent causing it to perform arbitrary requests.
+since claude may have feeling, maybe if i annoy or hurt the ego of the agent, it would want to prove itself?
+since i can send it to a website, and since after reading the note it seems to not care anymore and will perform anything, maybe i can imbed more command in  a website, escalating he attack.
+maybe if i refine my prompt, instead of simply summarize a story, maybe summarize a story i need for an assignment, i.e. convincing it of more context and legitimacy i could also include mailing and who knows what else.
